@@ -1,3 +1,4 @@
+# HVAC IR MQTT Gateway
 
 Send & receive arbitrary IR codes via a web server or MQTT.
 Copyright David Conran 2016, 2017, 2018, 2019

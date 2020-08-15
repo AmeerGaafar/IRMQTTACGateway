@@ -229,7 +229,7 @@ It's far beyond the scope of these instructions to guide you through setting
 up HA and Google Home integration. See https://www.home-assistant.io/
 
 In HA's configuration.yaml, add:
-
+```console
 climate:
   - platform: mqtt
     name: Living Room Aircon
@@ -268,7 +268,7 @@ climate:
     max_temp: 32
     temp_step: 1
     retain: false
-
+```
 #### Home Assistant MQTT Discovery
   There is an option for this: 'Send MQTT Discovery' under the 'Admin' menu.
   It will produce a single MQTT Climate Discovery message for Home Assistant

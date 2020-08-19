@@ -2,8 +2,8 @@
  * Send & receive arbitrary IR codes via a web server or MQTT.
  * Copyright David Conran 2016, 2017, 2018, 2019
  */
-#ifndef EXAMPLES_IRMQTTSERVER_IRMQTTSERVER_H_
-#define EXAMPLES_IRMQTTSERVER_IRMQTTSERVER_H_
+#ifndef IRMQTTACGateway
+#define IRMQTTACGateway
 
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>
@@ -16,16 +16,32 @@
 #include <IRutils.h>
 #include <IRac.h>
 
-// ---------------- Start of User Configuration Section ------------------------
+const char* WIFI_SSID = "tmp8c9dd94616321df0c467"; //your WiFi Name
+const char* WIFI_PASSWORD = "2714y41E76jn7KBi3nC060Yd5T9ChH1i";  //Your Wifi Password
+const char* HOSTNAME = "irhvacgw-";
 
-#ifndef MQTT_ENABLE
-#define MQTT_ENABLE true  // Whether or not MQTT is used at all.
-#endif  // MQTT_ENABLE
+const int   HTTP_PORT = 80;
+const char* HTTPUSERNAME = "V8Hq7ui626F8h0t";
+const char* HTTPPASSWORD = "XYZ2iSF72U445WS";
 
-#ifndef EXAMPLES_ENABLE
-// Whether or not examples are included. `false` saves ~2.5K of program space.
-#define EXAMPLES_ENABLE true
-#endif  // EXAMPLES_ENABLE
+const char* MQTTSERVER = "192.168.1.244";
+const char* MQTTPORT = "1883";
+const char* MQTTUSERNAME = "mosquitto_client";
+const char* MQTTPASSWORD = "XYZ2iSF72U445WS";
+
+const char* AC_MAKE = "COOLIX";
+const char* AC_MODEL = "Default";
+
+const char* CURRENT_TEMP_SENSOR_TOPIC = "shellies/shellyht-F3ABF0/sensor/temperature";
+const char* CURRENT_HMDT_SENSOR_TOPIC = "shellies/shellyht-F3ABF0/sensor/humidity";
+
+// -------------------------- Debug Settings -----------------------------------
+// Debug output is disabled if any of the IR pins are on the TX (D1) pin.
+// See `isSerialGpioUsedByIr()`.
+// Note: Debug costs ~6k of program space.
+#ifndef DEBUG
+#define DEBUG true  // Change to 'true' for serial debug output.
+#endif  // DEBUG
 
 // ---------------------- Board Related Settings -------------------------------
 // NOTE: Make sure you set your Serial Monitor to the same speed.
@@ -38,44 +54,12 @@ const uint8_t kNrOfIrTxGpios = 1;
 // Note: A value of -1 means unused.
 const int8_t kDefaultIrLed = 4;  // <=- CHANGE_ME (optional)
 
-// **DANGER** Optional flag to invert the output. (default = false)
-//            `false`: The LED is illuminated when the GPIO is HIGH.
-//            `true`: The LED is illuminated when GPIO is LOW rather than HIGH.
-//            Setting this to something other than the default could
-//            easily destroy your IR LED if you are overdriving it.
-//            Unless you *REALLY* know what you are doing, don't change this.
-const bool kInvertTxOutput = false;
-
-// Default GPIO the IR demodulator is connected to/controlled by. GPIO 14 = D5.
-// Note: GPIO 16 won't work on the ESP8266 as it does not have interrupts.
-const int8_t kDefaultIrRx = 14;  // <=- CHANGE_ME (optional)
-
-// Enable/disable receiving/decoding IR messages entirely.
-// Note: IR_RX costs about 40k+ of program memory.
-#define IR_RX true
-
-// Should we use PULLUP on the IR Rx gpio?
-#define IR_RX_PULLUP false
+const bool kInvertTxOutput = false; // true us dangerous!
 
 // --------------------- Network Related Settings ------------------------------
-const uint16_t kHttpPort = 80;  // The TCP port the HTTP server is listening on.
+const uint16_t kHttpPort = HTTP_PORT;  // The TCP port the HTTP server is listening on.
 // Change to 'true'/'false' if you do/don't want these features or functions.
-#define USE_STATIC_IP false  // Change to 'true' if you don't want to use DHCP.
-// We obtain our network config via DHCP by default but allow an easy way to
-// use a static IP config.
-#if USE_STATIC_IP
-const IPAddress kIPAddress = IPAddress(10, 0, 1, 78);
-const IPAddress kGateway = IPAddress(10, 0, 1, 1);
-const IPAddress kSubnetMask = IPAddress(255, 255, 255, 0);
-#endif  // USE_STATIC_IP
 
-// See: https://github.com/tzapu/WiFiManager#filter-networks for these settings.
-#define HIDE_DUPLICATE_NETWORKS false  // Make WifiManager hide duplicate SSIDs
-// #define MIN_SIGNAL_STRENGTH 20  // Minimum WiFi signal stength (percentage)
-                                   // before we will connect.
-                                   // The unset default is 8%.
-                                   // (Uncomment to enable)
-// Do you want/need mdns enabled? (https://en.wikipedia.org/wiki/Multicast_DNS)
 #define MDNS_ENABLE true  // `false` to disable and save ~21k of program space.
 
 // ----------------------- HTTP Related Settings -------------------------------
@@ -89,7 +73,6 @@ const IPAddress kSubnetMask = IPAddress(255, 255, 255, 0);
 // If you do not set a password, Firmware OTA & GPIO updates will be blocked.
 
 // ----------------------- MQTT Related Settings -------------------------------
-#if MQTT_ENABLE
 const uint32_t kMqttReconnectTime = 5000;  // Delay(ms) between reconnect tries.
 
 #define MQTT_ACK "sent"  // Sub-topic we send back acknowledgements on.
@@ -124,7 +107,7 @@ const uint32_t kMqttReconnectTime = 5000;  // Delay(ms) between reconnect tries.
 // down. If set to `true`, it will resend the previous desired state sent to the
 // A/C. Depending on your circumstances, you may need to change this.
 #define MQTT_CLIMATE_IR_SEND_ON_RESTART false
-#define MQTTbroadcastInterval 10 * 60  // Seconds between rebroadcasts.
+#define MQTTbroadcastInterval 1 * 60  // Seconds between rebroadcasts.
 
 #define QOS 1  // MQTT broker should queue up any unreceived messages for us
 // #define QOS 0  // MQTT broker WON'T queue up messages for us. Fire & Forget.
@@ -137,50 +120,6 @@ const uint32_t kMqttReconnectTime = 5000;  // Delay(ms) between reconnect tries.
 // In theory, you shouldn't need this as you can always clean up by hand, hence
 // it is disabled by default. Note: `false` saves ~1.2k.
 #define MQTT_CLEAR_ENABLE false
-#endif  // MQTT_ENABLE
-
-// ------------------------ IR Capture Settings --------------------------------
-// Should we stop listening for IR messages when we send a message via IR?
-// Set this to `true` if your IR demodulator is picking up self transmissions.
-// Use `false` if it isn't or can't see the self-sent transmissions
-// Using `true` may mean some incoming IR messages are lost or garbled.
-// i.e. `false` is better if you can get away with it.
-#define DISABLE_CAPTURE_WHILE_TRANSMITTING true
-// Let's use a larger than normal buffer so we can handle AirCon remote codes.
-const uint16_t kCaptureBufferSize = 1024;
-#if DECODE_AC
-// Some A/C units have gaps in their protocols of ~40ms. e.g. Kelvinator
-// A value this large may swallow repeats of some protocols
-const uint8_t kCaptureTimeout = 50;  // Milliseconds
-#else  // DECODE_AC
-// Suits most messages, while not swallowing many repeats.
-const uint8_t kCaptureTimeout = 15;  // Milliseconds
-#endif  // DECODE_AC
-// Ignore unknown messages with <10 pulses (see also REPORT_UNKNOWNS)
-const uint16_t kMinUnknownSize = 2 * 10;
-#define REPORT_UNKNOWNS false  // Report inbound IR messages that we don't know.
-#define REPORT_RAW_UNKNOWNS false  // Report the whole buffer, recommended:
-                                   // MQTT_MAX_PACKET_SIZE of 1024 or more
-
-// Should we use and report individual A/C settings we capture via IR if we
-// can understand the individual settings of the remote.
-// e.g. Aquire the A/C settings from an actual A/C IR remote and override
-//      any local settings set via MQTT/HTTP etc.
-#define USE_DECODED_AC_SETTINGS true  // `false` to disable. `true` to enable.
-// Should we allow or ignore an A/C IR remote to override the A/C protocol/model
-// as set via MQTT or HTTP?
-// e.g. If `true`, you can use any fully supported A/C remote to control
-//      another brand's or model's A/C unit. `false` means change to the new
-//      protocol/model if we support it via `USE_DECODED_AC_SETTINGS`.
-#define IGNORE_DECODED_AC_PROTOCOL true
-// Do we (re-)send the captured & decoded A/C message via the IR_LED?
-// `false` if you don't want to repeat the captured message.
-// e.g. Useful if the IR demodulator is located in the path between the remote
-//      and the A/C unit so the command isn't sent twice.
-// `true` if you want it sent anyway.
-// e.g. The IR demodulator is in a completely different location than than the
-//      actual a/c unit.
-#define REPLAY_DECODED_AC_MESSAGE false
 
 // ------------------------ Advanced Usage Only --------------------------------
 
@@ -191,14 +130,13 @@ const uint16_t kMinUnknownSize = 2 * 10;
 // make little sense for most users as it really isn't the actual input voltage.
 // E.g. For purposes of monitoring a battery etc.
 // Note: Turning on the feature costs ~250 bytes of prog space.
-#define REPORT_VCC false  // Do we report Vcc via html info page & MQTT?
-
 // Keywords for MQTT topics, html arguments, or config file.
 #define KEY_PROTOCOL "protocol"
 #define KEY_MODEL "model"
 #define KEY_POWER "power"
 #define KEY_MODE "mode"
 #define KEY_TEMP "temp"
+#define KEY_CURR_TEMP "currtemp"
 #define KEY_FANSPEED "fanspeed"
 #define KEY_SWINGV "swingv"
 #define KEY_SWINGH "swingh"
@@ -224,7 +162,6 @@ const uint16_t kMinUnknownSize = 2 * 10;
 
 // GPIO html/config keys
 #define KEY_TX_GPIO "tx"
-#define KEY_RX_GPIO "rx"
 
 // Text for Last Will & Testament status messages.
 const char* kLwtOnline = "Online";
@@ -232,26 +169,17 @@ const char* kLwtOffline = "Offline";
 
 const uint8_t kHostnameLength = 30;
 const uint8_t kPortLength = 5;  // Largest value of uint16_t is "65535".
-const uint8_t kUsernameLength = 15;
+const uint8_t kUsernameLength = 20;
 const uint8_t kPasswordLength = 20;
 
 // -------------------------- Json Settings ------------------------------------
 
 const uint16_t kJsonConfigMaxSize = 512;    // Bytes
 const uint16_t kJsonAcStateMaxSize = 1024;  // Bytes
-
-// -------------------------- Debug Settings -----------------------------------
-// Debug output is disabled if any of the IR pins are on the TX (D1) pin.
-// See `isSerialGpioUsedByIr()`.
-// Note: Debug costs ~6k of program space.
-#ifndef DEBUG
-#define DEBUG false  // Change to 'true' for serial debug output.
-#endif  // DEBUG
-
 // ----------------- End of User Configuration Section -------------------------
 
 // Constants
-#define _MY_VERSION_ "v1.5.0"
+#define _MY_VERSION_ "v1.0.0"
 
 const uint8_t kRebootTime = 15;  // Seconds
 const uint8_t kQuickDisplayTime = 2;  // Seconds
@@ -262,29 +190,14 @@ const uint8_t kCommonBitSizes[] = {
 // Gpio related
 #if defined(ESP8266)
 const int8_t kTxGpios[] = {-1, 0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16};
-const int8_t kRxGpios[] = {-1, 0, 1, 2, 3, 4, 5, 12, 13, 14, 15};
 #endif  // ESP8266
 #if defined(ESP32)
 // Ref: https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 const int8_t kTxGpios[] = {
     -1, 0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23,
     25, 26, 27, 32, 33};
-const int8_t kRxGpios[] = {
-    -1, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23,
-    25, 26, 27, 32, 33, 34, 35, 36, 39};
 #endif  // ESP32
 
-// JSON stuff
-// Name of the json config file in SPIFFS.
-const char* kConfigFile = "/config.json";
-const char* kMqttServerKey = "mqtt_server";
-const char* kMqttPortKey = "mqtt_port";
-const char* kMqttUserKey = "mqtt_user";
-const char* kMqttPassKey = "mqtt_pass";
-const char* kMqttPrefixKey = "mqtt_prefix";
-const char* kHostnameKey = "hostname";
-const char* kHttpUserKey = "http_user";
-const char* kHttpPassKey = "http_pass";
 const char* kCommandDelimiter = ",";
 
 // URLs
@@ -292,15 +205,11 @@ const char* kUrlRoot = "/";
 const char* kUrlAdmin = "/admin";
 const char* kUrlAircon = "/aircon";
 const char* kUrlSendDiscovery = "/send_discovery";
-const char* kUrlExamples = "/examples";
-const char* kUrlGpio = "/gpio";
-const char* kUrlGpioSet = "/gpio/set";
 const char* kUrlInfo = "/info";
 const char* kUrlReboot = "/quitquitquit";
 const char* kUrlWipe = "/reset";
 const char* kUrlClearMqtt = "/clear_retained";
 
-#if MQTT_ENABLE
 const uint32_t kBroadcastPeriodMs = MQTTbroadcastInterval * 1000;  // mSeconds.
 // How long should we listen to recover for previous states?
 // Default is 5 seconds per IR TX GPIOs (channels) used.
@@ -351,15 +260,8 @@ void sendJsonState(const stdAc::state_t state, const String topic,
                    const bool retain = false,
                    const bool ha_mode = MQTT_CLIMATE_HA_MODE);
 #endif  // MQTT_CLIMATE_JSON
-#endif  // MQTT_ENABLE
-#if REPORT_VCC
-String vccToString(void);
-#endif  // REPORT_VCC
 bool isSerialGpioUsedByIr(void);
 void debug(const char *str);
-void saveWifiConfigCallback(void);
-void saveWifiConfig(void);
-void loadWifiConfigFile(void);
 void doRestart(const char* str, const bool serial_only = false);
 String msToHumanString(uint32_t const msecs);
 String timeElapsed(uint32_t const msec);
@@ -379,7 +281,6 @@ String htmlMenu(void);
 void handleRoot(void);
 String addJsReloadUrl(const String url, const uint16_t timeout_s,
                       const bool notify);
-void handleExamples(void);
 String htmlSelectBool(const String name, const bool def);
 String htmlSelectClimateProtocol(const String name, const decode_type_t def);
 String htmlSelectAcStateProtocol(const String name, const decode_type_t def,
@@ -399,19 +300,15 @@ bool parseStringAndSendAirCon(IRsend *irsend, const decode_type_t irType,
                               const String str);
 uint16_t countValuesInStr(const String str, char sep);
 uint16_t * newCodeArray(const uint16_t size);
-#if SEND_GLOBALCACHE
+
 bool parseStringAndSendGC(IRsend *irsend, const String str);
-#endif  // SEND_GLOBALCACHE
-#if SEND_PRONTO
-bool parseStringAndSendPronto(IRsend *irsend, const String str,
-                              uint16_t repeats);
-#endif  // SEND_PRONTO
-#if SEND_RAW
+bool parseStringAndSendPronto(IRsend *irsend, const String str,uint16_t repeats);
 bool parseStringAndSendRaw(IRsend *irsend, const String str);
-#endif  // SEND_RAW
+
 void handleIr(void);
 void handleNotFound(void);
 void setup_wifi(void);
+void setup_ac();
 void init_vars(void);
 void setup(void);
 void loop(void);
@@ -431,4 +328,4 @@ bool sendClimate(const String topic_prefix, const bool retain,
                  const bool forceMQTT, const bool forceIR,
                  const bool enableIR = true, IRac *ac = NULL);
 bool decodeCommonAc(const decode_results *decode);
-#endif  // EXAMPLES_IRMQTTSERVER_IRMQTTSERVER_H_
+#endif  // IRMQTTACGateway
